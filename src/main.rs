@@ -4,15 +4,35 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-#[cfg(test)]
-fn test_runner(tests: &[&dyn Fn()]) {
-    serial_println!("Running {} tests", tests.len());
-    println!("Running {} tests", tests.len());
-    for test in tests {
-        test();
-    }
+pub trait Testable {
+    fn run(&self) -> ();
+}
 
+
+impl<T> Testable for T
+where
+    T: Fn(),
+{
+    fn run(&self) {
+        serial_print!("{}...\t", core::any::type_name::<T>());
+        self();
+        serial_println!("[ok]");
+    }
+}
+
+
+#[cfg(test)]
+pub fn test_runner(tests: &[&dyn Testable]) { // new
+    serial_println!("Running {} tests", tests.len());
+    for test in tests {
+        test.run(); // new
+    }
     exit_qemu(QemuExitCode::Success);
+}
+
+#[test_case]
+fn trivial_assertion() {
+    assert_eq!(1, 1);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,8 +84,13 @@ pub extern "C" fn _start() -> ! {
 }
 
 #[test_case]
-fn trivial_assertion() {
-    serial_print!("trivial assertion... ");
-    assert_eq!(1, 1);
-    serial_println!("[ok]");
+fn test_println_simple() {
+    println!("test_println_simple output");
+}
+
+#[test_case]
+fn test_println_many() {
+    for _ in 0..200 {
+        println!("test_println_many output");
+    }
 }
